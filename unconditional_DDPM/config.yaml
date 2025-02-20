@@ -1,0 +1,43 @@
+# model params
+diffusion:
+ T: 1000
+  
+# network params
+network:
+ in_channels: 3 
+ out_channels: 3 
+ num_blocks: 2 
+ attn_resolutions: [16] 
+ model_channels: 96 
+ channel_mult: [1,2,2] 
+ dropout: 0.13 
+ img_resolution: 32 
+ label_dim: 0
+ embedding_type: 'positional' 
+ encoder_type: 'standard' 
+ decoder_type: 'standard' 
+ augment_dim: 9 
+ channel_mult_noise: 1 
+ resample_filter: [1, 1]
+
+# training params
+n_epoch: 2000
+global_batch_size: 128
+global_seed: 1334
+learning_rate: 1.0e-4
+warm_epoch: 200
+load_epoch: -1
+flip: True
+ema: 0.9993
+num_workers: 8
+log_every: 100
+
+# testing params
+n_sample: 30
+save_dir: './2000_unconditional_DDPM'
+save_model: True
+
+# Sampling
+steps: 1000
+sampling_batch_size: 125
+epoch_checkpoint: -1
