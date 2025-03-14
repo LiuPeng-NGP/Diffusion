@@ -43,6 +43,7 @@ python3 -m pytorch_fid unconditional_EDM/1200_unconditional_EDM/EMAgenerated_ep1
 FID:  4.234571648031874
 
 # Class-condiitonal EDM
+cd Class_conditional_EDM
 ## Train
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
 ## Sample
@@ -53,5 +54,11 @@ python3 -m pytorch_fid Class_conditional_EDM/1200_conditional_EDM/EMAgenerated_e
 FID:  3.707334678054849
 
 # Unconditional Consistency Model
+cd uncondiitonal_CM
+cd /home/liupeng/Diffusion/uncondiitonal_CM
+## Train
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
+export CUDA_VISIBLE_DEVICES=1
+torchrun --nnodes=1 --nproc_per_node=1 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
 
 # Class-conditional Consistency Model

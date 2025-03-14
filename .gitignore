@@ -9,7 +9,9 @@ Class_conditional_EDM/1200_conditional_EDM
 Class_conditional_DDPM/2000_conditional_DDPM
 unconditional_EDM/1200_unconditional_EDM
 unconditional_DDPM/2000_unconditional_DDPM
-
+uncondiitonal_CM/2000_unconditional_CM
 # Ignore Consistency Model
-Class_conditional_CM
-uncondiitonal_CM
+
+# Ignore others
+sCM-CIFAR10
+sCM-mnist
