@@ -61,4 +61,7 @@ torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py 
 export CUDA_VISIBLE_DEVICES=1
 torchrun --nnodes=1 --nproc_per_node=1 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
 
+
+source activate diffusion && cd /liupeng/Diffusion/uncondiitonal_CM && torchrun --nnodes=1 --nproc_per_node=8 train.py --config config.yaml --use_amp
+
 # Class-conditional Consistency Model

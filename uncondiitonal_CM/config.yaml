@@ -13,7 +13,7 @@ network:
  attn_resolutions: [16] 
  model_channels: 96 
  channel_mult: [1,2,2] 
- dropout: 0.13 
+ dropout: 0.2
  img_resolution: 32 
  label_dim: 0
  embedding_type: 'positional' 
@@ -24,9 +24,9 @@ network:
  resample_filter: [1, 1]
 
 # training params
-n_epoch: 2000
+n_epoch: 4000
 # global_batch_size: 128
-global_batch_size: 64
+global_batch_size: 512
 global_seed: 1334
 learning_rate: 1.0e-4
 warm_epoch: 200
@@ -38,7 +38,7 @@ log_every: 100
 
 # testing params
 n_sample: 30
-save_dir: './2000_unconditional_CM'
+save_dir: './results/2000_unconditional_CM'
 save_model: True
 
 # Sampling

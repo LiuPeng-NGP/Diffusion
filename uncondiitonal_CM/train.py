@@ -259,7 +259,7 @@ def train(args):
                 
         # Testing and saving
         if local_rank == 0:
-            if current_epoch % 1 == 0 or current_epoch == args.n_epoch - 1:
+            if current_epoch % 100 == 0 or current_epoch == args.n_epoch - 1:
                 temp_scm = sCM(ema)
                 noise = torch.randn([args.n_sample, 3, 32, 32]).to(device)
                 temp_scm.model.eval()
