@@ -66,7 +66,6 @@ def sample(args):
     with open(yaml_path, 'r') as f:
         args = yaml.full_load(f)
     args = Config(args)
-    steps = args.steps
     batches = args.sampling_batch_size
     epoch_checkpoint = args.epoch_checkpoint
     
@@ -111,7 +110,7 @@ def sample(args):
     diffusion.model.eval()
 
     if local_rank == 0:
-        gen_dir = os.path.join(args.save_dir, f"EMAgenerated_ep{epoch_checkpoint}_cm_steps{steps}")
+        gen_dir = os.path.join(args.save_dir, f"EMAgenerated_ep{epoch_checkpoint}_cm")
         os.makedirs(gen_dir, exist_ok=True)
         gen_dir_png = os.path.join(gen_dir, "pngs")
         os.makedirs(gen_dir_png, exist_ok=True)
@@ -122,12 +121,9 @@ def sample(args):
             assert 400 % dist.get_world_size() == 0
             samples_per_process = 400 // dist.get_world_size()
             noise = torch.randn([samples_per_process,3,32, 32]).to(device)
-            # Create labels:
-            c = torch.arange(args.num_classes).repeat(noise.shape[0] // args.num_classes + 1)[:samples_per_process].to(device)
-            c = F.one_hot(c, num_classes=args.num_classes)
             
             with torch.no_grad():
-                x_gen = diffusion.sample(noise, c)
+                x_gen = diffusion.sample(noise)
         dist.barrier()
         x_gen = gather_tensor(x_gen).cpu()
         if local_rank == 0:

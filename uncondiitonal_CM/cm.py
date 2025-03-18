@@ -42,7 +42,7 @@ class sCM():
         
         # Warmup factor r = min(1, step / 10000)
         r = min(1.0, self.step / 10000)
-          # Wrapper for model to compute $ F_\theta $
+        # Wrapper for model to compute $ F_\theta $
         def model_wrapper(scaled_x_t, t_val):
             pred = self.model.module(scaled_x_t, t_val.flatten(), class_labels=class_labels)
             return pred
@@ -95,6 +95,8 @@ class sCM():
     
     @torch.no_grad()
     def sample(self, latents, class_labels=None, sigma_max=80):
+        
+        latents *= self.sigma_data 
         
         sigma_max = min(sigma_max, self.sigma_max)
         t = torch.arctan(torch.tensor([sigma_max / self.sigma_data], device=latents.device))

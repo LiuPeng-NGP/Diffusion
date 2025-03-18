@@ -12,6 +12,7 @@ run the code in extract_data.ipynb to download CIFAR-10 data.
 cd unconditional_DDPM
 ## Train
 torchrun --nnodes=1 --nproc_per_node=2 train.py --config config.yaml --use_amp
+source activate diffusion && cd /liupeng/Diffusion/unconditional_DDPM && torchrun --nnodes=1 --nproc_per_node=8 train.py --config config.yaml --use_amp
 ## Sample
 torchrun --nnodes=1 --nproc_per_node=2 sample.py --config config.yaml --use_amp
 ## Evaluation
@@ -63,5 +64,14 @@ torchrun --nnodes=1 --nproc_per_node=1 --rdzv_endpoint=localhost:55002 train.py 
 
 
 source activate diffusion && cd /liupeng/Diffusion/uncondiitonal_CM && torchrun --nnodes=1 --nproc_per_node=8 train.py --config config.yaml --use_amp
+source activate diffusion && cd /liupeng/Diffusion/uncondiitonal_CM && torchrun --nnodes=1 --nproc_per_node=8 train.py --config config_128.yaml --use_amp
+## Sample
+source activate diffusion && cd /liupeng/Diffusion/uncondiitonal_CM && torchrun --nnodes=1 --nproc_per_node=8 sample.py --config config.yaml --use_amp
 
+## Evaluation
+###  without pretrained diffusion
+python3 -m pytorch_fid uncondiitonal_CM/results/4000_unconditional_CM/EMAgenerated_ep3999_cm/pngs data/cifar10-pngs
+source activate diffusion && cd /liupeng/Diffusion/uncondiitonal_CM && python3 -m pytorch_fid uncondiitonal_CM/results/4000_unconditional_CM/EMAgenerated_ep3999_cm/pngs data/cifar10-pngs
+
+FID:  19.22231772112133
 # Class-conditional Consistency Model
