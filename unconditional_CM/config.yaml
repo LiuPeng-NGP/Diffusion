@@ -24,8 +24,9 @@ network:
  resample_filter: [1, 1]
 
 # training params
-n_epoch: 2000
-global_batch_size: 128
+n_epoch: 10000
+# global_batch_size: 128
+global_batch_size: 1024
 global_seed: 1334
 learning_rate: 1.0e-4
 warm_epoch: 200
@@ -37,9 +38,9 @@ log_every: 100
 
 # testing params
 n_sample: 30
-save_dir: './results/2000_unconditional_CM'
+save_dir: './results/4000_unconditional_CM_modified_unet'
 save_model: True
 
 # Sampling
 sampling_batch_size: 125
-epoch_checkpoint: -1
+epoch_checkpoint: 4800

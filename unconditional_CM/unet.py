@@ -130,7 +130,7 @@ class UNetBlock(torch.nn.Module):
 
         self.skip = None
         if out_channels != in_channels or up or down:
-            kernel = 1 if resample_proj or out_channels!= in_channels else 0
+            kernel = 1 if resample_proj or out_channels != in_channels else 0
             self.skip = Conv2d(in_channels=in_channels, out_channels=out_channels, kernel=kernel, up=up, down=down, resample_filter=resample_filter, **init)
 
         if self.num_heads:
@@ -142,11 +142,22 @@ class UNetBlock(torch.nn.Module):
         orig = x
         x = self.conv0(silu(self.norm0(x)))
 
-        params = self.affine(emb).unsqueeze(2).unsqueeze(3).to(x.dtype)
+        params = self.affine(emb).to(x.dtype)  # [batch_size, out_channels * (2 if adaptive_scale else 1)]
         if self.adaptive_scale:
-            scale, shift = params.chunk(chunks=2, dim=1)
-            x = silu(torch.addcmul(shift, self.norm1(x), scale + 1))
+            scale, shift = params.chunk(chunks=2, dim=1)  # [batch_size, out_channels] each
+            # Apply pixel normalization to scale and shift
+            rms_scale = torch.sqrt(torch.mean(scale ** 2, dim=1, keepdim=True) + 1e-8)
+            pnorm_scale = scale / rms_scale
+            rms_shift = torch.sqrt(torch.mean(shift ** 2, dim=1, keepdim=True) + 1e-8)
+            pnorm_shift = shift / rms_shift
+            # Unsqueeze for broadcasting over height and width
+            pnorm_scale = pnorm_scale.unsqueeze(2).unsqueeze(3)
+            pnorm_shift = pnorm_shift.unsqueeze(2).unsqueeze(3)
+            # Apply to normalized x with scale centered around 1
+            x_norm = self.norm1(x)
+            x = silu(x_norm * (pnorm_scale + 1) + pnorm_shift)
         else:
+            params = params.unsqueeze(2).unsqueeze(3)
             x = silu(self.norm1(x.add_(params)))
 
         x = self.conv1(torch.nn.functional.dropout(x, p=self.dropout, training=self.training))
@@ -237,7 +248,7 @@ class SongUNet(torch.nn.Module):
         init_attn = dict(init_mode='xavier_uniform', init_weight=np.sqrt(0.2))
         block_kwargs = dict(
             emb_channels=emb_channels, num_heads=1, dropout=dropout, skip_scale=np.sqrt(0.5), eps=1e-6,
-            resample_filter=resample_filter, resample_proj=True, adaptive_scale=False,
+            resample_filter=resample_filter, resample_proj=True, adaptive_scale=True,
             init=init, init_zero=init_zero, init_attn=init_attn,
         )
 
