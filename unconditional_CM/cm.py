@@ -66,8 +66,6 @@ class sCM():
         
         # Compute gradient $ g $ for consistency loss (modified from paper's Eq. 6)
         g = -torch.cos(t)**2 * (self.sigma_data * F_theta_minus - dxt_dt)
-        # g -= r * torch.cos(t) * torch.sin(t) * (x_t + self.sigma_data * dF_dt)
-        # g -= r * (torch.cos(t) * torch.sin(t) * x_t + self.sigma_data * dF_dt)
         g -= r * (torch.cos(t) * torch.sin(t) * x_t + scaled_dF_dt)
         
         # Gradient normalization (stabilization technique)
@@ -84,9 +82,6 @@ class sCM():
         # Weighted loss for sCM paper
         loss_per_sample = torch.exp(w_phi) * mse - w_phi  # Weighted loss
         
-        # Weighted loss for sCM-mnist and EDM 2
-        # loss_per_sample = (e_tau/ torch.exp(w_phi)) * mse + w_phi
-        
         loss = loss_per_sample.mean()  # Average over batch
         
         self.step+=1
@@ -101,7 +96,7 @@ class sCM():
         sigma_max = min(sigma_max, self.sigma_max)
         t = torch.arctan(torch.tensor([sigma_max / self.sigma_data], device=latents.device))
         
-        # # Initial noisy sample x_t
+        # Initial noisy sample x_t
         x_t = torch.sin(t) * latents
         
         # Model prediction F_θ(x_t / σ_d, t)
@@ -110,7 +105,7 @@ class sCM():
         
         pred = self.model(scaled_x_t, t_flat, class_labels=class_labels)
         
-        # # Compute denoised sample x0 = cos(t) x_t - sin(t) σ_d F_θ
+        # Compute denoised sample x0 = cos(t) x_t - sin(t) σ_d F_θ
         x0 = torch.cos(t) * x_t - torch.sin(t) * self.sigma_data * pred
         
         return x0
