@@ -34,7 +34,7 @@ log_every: 100
 
 # testing params
 n_sample: 30
-save_dir: './2000_conditional_DDPM'
+save_dir: './results/2000_conditional_DDPM'
 save_model: True
 
 # Sampling

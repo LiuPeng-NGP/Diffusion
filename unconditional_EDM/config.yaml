@@ -39,7 +39,7 @@ log_every: 100
 
 # testing params
 n_sample: 30
-save_dir: './1200_unconditional_EDM'
+save_dir: './results/1200_unconditional_EDM'
 save_model: True
 
 # Sampling
