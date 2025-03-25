@@ -38,7 +38,7 @@ torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55001 train.py 
 ## Sample
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55501 sample.py --config config.yaml --use_amp
 ## Evaluation
-python3 -m pytorch_fid unconditional_EDM/results//results1200_unconditional_EDM/EMAgenerated_ep1199_edm_steps18/pngs data/cifar10-pngs
+python3 -m pytorch_fid unconditional_EDM/results/1200_unconditional_EDM/EMAgenerated_ep1199_edm_steps18/pngs data/cifar10-pngs
 
 FID:  4.234571648031874
 
@@ -49,7 +49,7 @@ torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py 
 ## Sample
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55502 sample.py --config config.yaml --use_amp
 ## Evaluation
-python3 -m pytorch_fid Class_conditional_EDM//results1200_conditional_EDM/EMAgenerated_ep1199_edm_steps18/pngs data/cifar10-pngs
+python3 -m pytorch_fid Class_conditional_EDM/results/1200_conditional_EDM/EMAgenerated_ep1199_edm_steps18/pngs data/cifar10-pngs
 
 FID:  3.707334678054849
 
