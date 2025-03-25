@@ -1,5 +1,5 @@
 # Diffusion
-My replication for diffusion model.
+Replication for diffusion models.
 
 # Environment
 conda env create -f environment.yml
