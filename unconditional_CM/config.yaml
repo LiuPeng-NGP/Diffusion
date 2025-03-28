@@ -42,4 +42,4 @@ save_model: True
 
 # Sampling
 sampling_batch_size: 125
-epoch_checkpoint: 4800
+epoch_checkpoint: -1
