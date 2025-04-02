@@ -63,3 +63,13 @@ torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55003 sample.py
 python3 -m pytorch_fid unconditional_CM/results/2000_unconditional_CM/EMAgenerated_ep1999_cm/pngs data/cifar10-pngs
 
 FID:  13.528500369549818
+
+# Unconditional Flow Matching
+cd unconditional_FM
+## Train
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55004 train.py --config config.yaml --use_amp
+## Sample
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55014 sample.py --config config.yaml --use_amp
+## Evaluation
+python3 -m pytorch_fid unconditional_FM/results/2000_unconditional_FM/EMAgenerated_ep1999_fm/pngs data/cifar10-pngs
+FID:  7.1084244983728695
