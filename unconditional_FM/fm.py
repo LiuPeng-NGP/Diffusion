@@ -44,7 +44,7 @@ class FM():
         return loss
 
     @torch.no_grad()
-    def sample(self, latents, class_labels=None, null_cond=None, num_steps=50, cfg=2.0):
+    def sample(self, latents, class_labels=None, null_cond=None, num_steps=200, cfg=2.0):
         """
         Generates samples using the learned vector field via ODE integration.
 
