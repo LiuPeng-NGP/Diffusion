@@ -75,3 +75,14 @@ python3 -m pytorch_fid unconditional_FM/results/2000_unconditional_FM/EMAgenerat
 50 steps FID:  7.1084244983728695
 200 steps FID:  5.290798096032063
 1000 steps FID:  4.914015652275225
+
+# Unconditional Optimal Transport Conditional Flow Matching
+cd unconditional_OTCFM
+## Train
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55005 train.py --config config.yaml --use_amp
+## Sample
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55015 sample.py --config config.yaml --use_amp
+## Evaluation
+python3 -m pytorch_fid unconditional_OTCFM/results/2000_unconditional_FM/EMAgenerated_ep1999_fm/pngs data/cifar10-pngs
+200 steps FID:  5.2403232585506885
+
