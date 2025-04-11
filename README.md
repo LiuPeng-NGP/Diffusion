@@ -90,3 +90,9 @@ python3 -m pytorch_fid unconditional_OTCFM/results/2000_unconditional_FM/EMAgene
 
 200 steps FID:  5.2403232585506885
 
+
+# Unconditional DDPM transformer
+cd unconditional_DDPM_transformer
+
+## Train
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55006 train.py --config config.yaml --use_amp

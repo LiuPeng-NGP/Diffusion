@@ -1,0 +1,36 @@
+# model params
+diffusion:
+ T: 1000
+  
+network:
+  img_resolution: 32
+  in_channels: 3
+  out_channels: 3
+  patch_size: 2  # ViT-style patch size
+  dim_embed: 512
+  depth: 8
+  num_heads: 8
+  mlp_ratio: 4.0
+  drop_prob: 0.1
+
+# training params
+n_epoch: 2000
+global_batch_size: 128
+global_seed: 1334
+learning_rate: 1.0e-4
+warm_epoch: 200
+load_epoch: -1
+flip: True
+ema: 0.9993
+num_workers: 8
+log_every: 100
+
+# testing params
+n_sample: 30
+save_dir: './results/2000_unconditional_DDPM'
+save_model: True
+
+# Sampling
+steps: 1000
+sampling_batch_size: 125
+epoch_checkpoint: -1
