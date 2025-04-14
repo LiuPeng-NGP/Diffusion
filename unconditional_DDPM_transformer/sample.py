@@ -11,7 +11,7 @@ import argparse
 import os
 
 from ddpm import DDPM
-from unet import Transformer
+from transformer import Transformer
 
 import warnings
 warnings.filterwarnings('ignore', 'Grad strides do not match bucket view strides') # False warning printed by PyTorch 1.12.

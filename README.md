@@ -96,3 +96,9 @@ cd unconditional_DDPM_transformer
 
 ## Train
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55006 train.py --config config.yaml --use_amp
+## Sample
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55016 sample.py --config config.yaml --use_amp
+## Evaluation
+python3 -m pytorch_fid unconditional_DDPM_transformer/results/2000_unconditional_DDPM/EMAgenerated_ep1999_ddpm_steps1000/pngs data/cifar10-pngs
+
+FID:  8.94988141073594
