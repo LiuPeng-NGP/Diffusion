@@ -9,12 +9,13 @@ network:
   img_resolution: 32
   in_channels: 3
   out_channels: 3
-  patch_size: 2  # ViT-style patch size
-  dim_embed: 512
-  depth: 4
-  num_heads: 8
+  patch_size: 4
+  dim_embed: 768 # Example larger dimension
+  num_heads: 12
+  depth: 12
   mlp_ratio: 4.0
   drop_prob: 0.1
+  norm_type: "rmsnorm" # or "layernorm"
 
 # training params
 n_epoch: 2000

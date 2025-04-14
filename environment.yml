@@ -18,3 +18,4 @@ dependencies:
     - pytorch-fid==0.3.0
     - fsspec==2024.10.0
     - pot==0.9.5
+    - einops==0.8.1
