@@ -23,7 +23,7 @@ global_batch_size: 128
 global_seed: 1334
 learning_rate: 1.0e-4
 warm_epoch: 200
-load_epoch: -1
+load_epoch: 500
 flip: True
 ema: 0.9993
 num_workers: 8

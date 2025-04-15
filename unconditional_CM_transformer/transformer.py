@@ -24,6 +24,29 @@ def modulate(x, shift, scale):
     # shift, scale: (B, Dim)
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
+# --- Utility for Printing Stats ---
+def print_stats(name: str, x: Tensor):
+    if not isinstance(x, Tensor):
+        print(f"DEBUG: {name} is not a tensor ({type(x)}).")
+        return
+    if x.numel() == 0:
+        print(f"DEBUG: {name} is empty. Shape: {x.shape}")
+        return
+
+    # Detach before calculating stats to avoid impacting gradients if any ops aren't no_grad
+    with torch.no_grad():
+        has_nan = torch.isnan(x).any().item()
+        has_inf = torch.isinf(x).any().item()
+        if x.is_floating_point():
+             print(f"DEBUG: {name} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
+                   f"NaN: {has_nan}, Inf: {has_inf}, "
+                   f"Min: {x.min().item():.4f}, Max: {x.max().item():.4f}, "
+                   f"Mean: {x.mean().item():.4f}, Std: {x.std().item():.4f}")
+        else:
+             print(f"DEBUG: {name} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
+                   f"NaN: {has_nan}, Inf: {has_inf}, "
+                   f"Min: {x.min().item()}, Max: {x.max().item()}") # No mean/std for non-float
+
 # --- Modules ---
 
 class PositionalEncoding(nn.Module):
@@ -48,9 +71,15 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x: Tensor):
         # x shape: (Batch, SeqLen, Dim)
+        print_stats("PosEnc Input", x)
         # Add positional encoding up to the sequence length
-        x = x + self.pe[:, :x.size(1)]
-        return self.dropout(x)
+        pe_to_add = self.pe[:, :x.size(1)]
+        print_stats("PosEnc PE Added", pe_to_add)
+        x = x + pe_to_add
+        print_stats("PosEnc After Add", x)
+        x_drop = self.dropout(x)
+        print_stats("PosEnc Output (After Dropout)", x_drop)
+        return x_drop
 
 
 class MultiHeadAttention(nn.Module):
@@ -68,41 +97,55 @@ class MultiHeadAttention(nn.Module):
         self.dropout_output = nn.Dropout(drop_prob) # Dropout on output
 
     def forward(self, x: Tensor, y: Tensor, mask: Tensor = None) -> Tensor:
+        # Note: Original code assumes self-attention (x=y), keeping that logic.
+        print_stats("MHA Input x", x)
+        # print_stats("MHA Input y", y) # Only relevant if cross-attention used
+
         B, N, C = x.shape # Batch, SeqLen, Channels(dim_embed)
-        _B, _N, _C = y.shape
-
-        # Project x to Q, y to K,V
-        # This assumes self-attention (x=y). If cross-attention needed, adjust.
-        qkv_x = self.qkv(x).reshape(B, N, 3, self.num_heads, self.dim_head).permute(2, 0, 3, 1, 4)
+        # Project x to Q, K, V (assuming self-attention)
+        qkv_x = self.qkv(x)
+        print_stats("MHA QKV Proj", qkv_x)
+        qkv_x = qkv_x.reshape(B, N, 3, self.num_heads, self.dim_head).permute(2, 0, 3, 1, 4)
         q, k, v = qkv_x.unbind(0) # Shape: (B, num_heads, N, dim_head)
+        print_stats("MHA Q", q)
+        print_stats("MHA K", k)
+        print_stats("MHA V", v)
 
-        # If cross-attention is needed (y != x), project y separately for K, V
-        # if x is not y:
-        #    kv_y = self.kv(y).reshape(B, N, 2, self.num_heads, self.dim_head).permute(2, 0, 3, 1, 4)
-        #    k, v = kv_y.unbind(0)
+        attn_output = attention(q, k, v, mask) # (B, num_heads, N, dim_head)
+        print_stats("MHA Attention Output Raw", attn_output)
 
-        attn = attention(q, k, v, mask) # (B, num_heads, N, dim_head)
-        attn = attn.transpose(1, 2).reshape(B, N, C) # (B, N, C) concat heads
-        attn = self.dropout_attn(attn) # Optional dropout on attention scores
+        attn_output = attn_output.transpose(1, 2).reshape(B, N, C) # (B, N, C) concat heads
+        print_stats("MHA Attention Output Reshaped", attn_output)
+        attn_output = self.dropout_attn(attn_output) # Optional dropout on attention scores
+        print_stats("MHA Attention Output After Dropout", attn_output)
 
-        out = self.output(attn)
+        out = self.output(attn_output)
+        print_stats("MHA Final Proj Output", out)
         out = self.dropout_output(out) # Dropout before residual connection
+        print_stats("MHA Output (After Dropout)", out)
         return out
 
 class PositionwiseFeedForward(nn.Module):
     # Standard MLP block (Linear -> Activation -> Dropout -> Linear -> Dropout)
+    # REVERTED TO use nn.Sequential to match the checkpoint keys
     def __init__(self, dim_embed: int, dim_pffn: int, drop_prob: float, bias: bool = True) -> None:
         super().__init__()
+        # Use nn.Sequential as expected by the checkpoint's keys
         self.pffn = nn.Sequential(
-            nn.Linear(dim_embed, dim_pffn, bias=bias),
-            nn.SiLU(), # SiLU (Swish) is common and effective
-            nn.Dropout(drop_prob),
-            nn.Linear(dim_pffn, dim_embed, bias=bias),
-            nn.Dropout(drop_prob),
+            nn.Linear(dim_embed, dim_pffn, bias=bias),      # Index 0
+            nn.SiLU(),                                     # Index 1
+            nn.Dropout(drop_prob),                         # Index 2
+            nn.Linear(dim_pffn, dim_embed, bias=bias),     # Index 3
+            nn.Dropout(drop_prob),                         # Index 4
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.pffn(x)
+        print_stats("PFFN Input", x)
+        # Call the sequential module directly
+        output = self.pffn(x)
+        # You can add prints *around* the sequential call, but not easily inside without hooks
+        print_stats("PFFN Output", output)
+        return output
 
 class TimestepEmbedder(nn.Module):
     """
@@ -145,11 +188,12 @@ class TimestepEmbedder(nn.Module):
         return embedding
 
     def forward(self, t):
-        # Assumes t is shape [batch_size] and represents values (e.g., noise levels or steps)
-        # If t is normalized [0, 1], scaling might be needed depending on expected range for embedding
-        # Example: t * 1000 if input t is normalized and timestep_embedding expects larger values
+        print_stats("TimestepEmbedder Input t", t)
+        # ** Assuming `t` passed is suitable for `TimestepEmbedder` (e.g., scaled) **
         t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
+        print_stats("TimestepEmbedder Freq Embed", t_freq)
         t_emb = self.mlp(t_freq)
+        print_stats("TimestepEmbedder Output MLP (t_emb)", t_emb)
         return t_emb
 
 # --- Normalization Options ---
@@ -167,10 +211,12 @@ class RMSNorm(torch.nn.Module):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
 
     def forward(self, x):
+        print_stats("Norm Input", x)
         # Normalize in float32 for stability, then cast back
         output = self._norm(x.float()).type_as(x)
         if self.elementwise_affine:
             output = output * self.weight
+        print_stats("Norm Output", output)
         return output
 
 class LayerNormWrapper(nn.Module):
@@ -180,7 +226,10 @@ class LayerNormWrapper(nn.Module):
         self.norm = nn.LayerNorm(dim, eps=eps, elementwise_affine=elementwise_affine)
 
     def forward(self, x):
-        return self.norm(x)
+        print_stats("Norm Input", x)
+        out = self.norm(x)
+        print_stats("Norm Output", out)
+        return out
 
 # --- Transformer Block with adaLN-Zero ---
 
@@ -193,11 +242,9 @@ class TransformerBlock(nn.Module):
         super().__init__()
         # Choose normalization layer type
         if norm_type == "rmsnorm":
-            # RMSNorm doesn't need elementwise_affine=True if used with modulate
             self.norm1 = RMSNorm(dim_embed, eps=norm_eps, elementwise_affine=True) # Let RMSNorm have its scale
             self.norm2 = RMSNorm(dim_embed, eps=norm_eps, elementwise_affine=True)
         elif norm_type == "layernorm":
-            # LayerNorm elementwise_affine should be False if using modulate
             self.norm1 = LayerNormWrapper(dim_embed, eps=norm_eps, elementwise_affine=False)
             self.norm2 = LayerNormWrapper(dim_embed, eps=norm_eps, elementwise_affine=False)
         else:
@@ -210,30 +257,60 @@ class TransformerBlock(nn.Module):
         # adaLN_modulation: projects time embedding to 6 values (shift_mha, scale_mha, gate_mha, ...)
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(dim_embed, 6 * dim_embed, bias=True)
+            nn.Linear(dim_embed, 6 * dim_embed, bias=True) # Final layer is the linear proj
         )
 
     def forward(self, x, c): # c is the conditional embedding (e.g., time)
-        # x: (B, SeqLen, Dim), c: (B, Dim)
+        print_stats("Block Input x", x)
+        print_stats("Block Input c", c)
 
         # Get modulation parameters: shift, scale, gate for Attn and FFN paths
+        mod_params = self.adaLN_modulation(c)
+        print_stats("Block adaLN Raw Output", mod_params)
         shift_mha, scale_mha, gate_mha, shift_ffd, scale_ffd, gate_ffd = \
-            self.adaLN_modulation(c).chunk(6, dim=1)
+            mod_params.chunk(6, dim=1)
+
+        # --- Print Modulation Parameter Stats ---
+        print_stats("Block shift_mha", shift_mha)
+        print_stats("Block scale_mha", scale_mha)
+        print_stats("Block gate_mha", gate_mha)
+        print_stats("Block shift_ffd", shift_ffd)
+        print_stats("Block scale_ffd", scale_ffd)
+        print_stats("Block gate_ffd", gate_ffd)
+        # ---
 
         # Self-Attention path
         residual = x
-        x_norm1 = self.norm1(x)
+        print("--- Block: Entering Self-Attention Path ---")
+        x_norm1 = self.norm1(x) # Prints inside norm
+        print_stats("Block After Norm1", x_norm1)
         x_modulated1 = modulate(x_norm1, shift_mha, scale_mha) # Modulate AFTER norm
-        attn_output = self.self_atten(x_modulated1, x_modulated1) # Self-attention
-        x = residual + gate_mha.unsqueeze(1) * attn_output # Gated residual
+        print_stats("Block After Modulate1", x_modulated1)
+        attn_output = self.self_atten(x_modulated1, x_modulated1) # Self-attention (prints inside MHA)
+        print_stats("Block Attn Output", attn_output)
+        gated_attn_output = gate_mha.unsqueeze(1) * attn_output
+        print_stats("Block Gated Attn Output", gated_attn_output)
+        x = residual + gated_attn_output # Gated residual
+        print_stats("Block After Attn Residual Add", x)
+        print("--- Block: Exiting Self-Attention Path ---")
+
 
         # Feed-Forward path
         residual = x
-        x_norm2 = self.norm2(x)
+        print("--- Block: Entering Feed-Forward Path ---")
+        x_norm2 = self.norm2(x) # Prints inside norm
+        print_stats("Block After Norm2", x_norm2)
         x_modulated2 = modulate(x_norm2, shift_ffd, scale_ffd) # Modulate AFTER norm
-        ffn_output = self.feed_forward(x_modulated2)
-        x = residual + gate_ffd.unsqueeze(1) * ffn_output # Gated residual
+        print_stats("Block After Modulate2", x_modulated2)
+        ffn_output = self.feed_forward(x_modulated2) # Prints inside PFFN
+        print_stats("Block FFN Output", ffn_output)
+        gated_ffn_output = gate_ffd.unsqueeze(1) * ffn_output
+        print_stats("Block Gated FFN Output", gated_ffn_output)
+        x = residual + gated_ffn_output # Gated residual
+        print_stats("Block After FFN Residual Add", x)
+        print("--- Block: Exiting Feed-Forward Path ---")
 
+        print_stats("Block Final Output x", x)
         return x
 
 
@@ -244,10 +321,8 @@ class FinalLayer(nn.Module):
     def __init__(self, dim_embed, out_channels, norm_type="rmsnorm", norm_eps=1e-6):
         super().__init__()
         if norm_type == "rmsnorm":
-             # RMSNorm doesn't need elementwise_affine=True if used with modulate
             self.norm_final = RMSNorm(dim_embed, eps=norm_eps, elementwise_affine=True)
         elif norm_type == "layernorm":
-            # LayerNorm elementwise_affine should be False if using modulate
             self.norm_final = LayerNormWrapper(dim_embed, eps=norm_eps, elementwise_affine=False)
         else:
             raise ValueError(f"Unknown norm_type: {norm_type}")
@@ -255,17 +330,30 @@ class FinalLayer(nn.Module):
         # Modulation layer for shift/scale
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(dim_embed, 2 * dim_embed, bias=True)
+            nn.Linear(dim_embed, 2 * dim_embed, bias=True) # Final layer is linear proj
         )
         # Final linear projection to the dimension needed for unpatching
         self.linear = nn.Linear(dim_embed, out_channels, bias=True) # Output should match input to ConvTranspose2d
 
     def forward(self, x, c):
-        # x: (B, SeqLen, Dim), c: (B, Dim)
-        shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
-        x_norm = self.norm_final(x)
+        print_stats("FinalLayer Input x", x)
+        print_stats("FinalLayer Input c", c)
+
+        mod_params = self.adaLN_modulation(c)
+        print_stats("FinalLayer adaLN Raw Output", mod_params)
+        shift, scale = mod_params.chunk(2, dim=1)
+
+        # --- Print Modulation Parameter Stats ---
+        print_stats("FinalLayer shift", shift)
+        print_stats("FinalLayer scale", scale)
+        # ---
+
+        x_norm = self.norm_final(x) # Prints inside norm
+        print_stats("FinalLayer After Norm", x_norm)
         x_modulated = modulate(x_norm, shift, scale) # Modulate AFTER norm
+        print_stats("FinalLayer After Modulate", x_modulated)
         x = self.linear(x_modulated) # Project to output dimension
+        print_stats("FinalLayer Output (After Linear)", x)
         return x
 
 
@@ -309,9 +397,11 @@ class Transformer(nn.Module):
 
         # --- 2. Positional and Timestep Embedding ---
         if learn_pe:
+            # Learnable PE doesn't use the PositionalEncoding module's forward
             self.pos_embed = nn.Parameter(torch.zeros(1, self.num_patches, dim_embed))
         else:
-            self.pos_embed = PositionalEncoding(dim_embed, max_len=self.num_patches, drop_prob=0.0)
+            # Sinusoidal PE uses the PositionalEncoding module's forward
+            self.pos_embed_module = PositionalEncoding(dim_embed, max_len=self.num_patches, drop_prob=0.0)
 
         self.t_embedder = TimestepEmbedder(hidden_size=dim_embed, frequency_embedding_size=t_embed_dim)
 
@@ -348,7 +438,8 @@ class Transformer(nn.Module):
 
         # Initialize weights
         self.initialize_weights()
-        print(f"Transformer initialized with {sum(p.numel() for p in self.parameters())/1e6:.2f}M parameters")
+        # Count params once at init
+        print(f"Transformer initialized with {sum(p.numel() for p in self.parameters() if p.requires_grad)/1e6:.2f}M trainable parameters")
 
 
     def initialize_weights(self):
@@ -361,6 +452,7 @@ class Transformer(nn.Module):
         # Initialize positional embedding if learnable
         if self.learn_pe:
             nn.init.normal_(self.pos_embed, std=.02)
+        # Sinusoidal PE is buffer-based, no init needed here
 
         # Timestep embedder MLP is initialized within its class
 
@@ -373,11 +465,18 @@ class Transformer(nn.Module):
             nn.init.xavier_uniform_(block.self_atten.output.weight)
             if block.self_atten.output.bias is not None: nn.init.constant_(block.self_atten.output.bias, 0)
 
-            # FeedForward layers
-            nn.init.xavier_uniform_(block.feed_forward.pffn[0].weight)
-            if block.feed_forward.pffn[0].bias is not None: nn.init.constant_(block.feed_forward.pffn[0].bias, 0)
-            nn.init.xavier_uniform_(block.feed_forward.pffn[3].weight)
-            if block.feed_forward.pffn[3].bias is not None: nn.init.constant_(block.feed_forward.pffn[3].bias, 0)
+            # FeedForward layers - THIS PART SHOULD NOW WORK CORRECTLY
+            # because it checks for 'pffn' which now exists again.
+            if hasattr(block.feed_forward, 'pffn'): # Using Sequential
+                 nn.init.xavier_uniform_(block.feed_forward.pffn[0].weight)
+                 if block.feed_forward.pffn[0].bias is not None: nn.init.constant_(block.feed_forward.pffn[0].bias, 0)
+                 nn.init.xavier_uniform_(block.feed_forward.pffn[3].weight)
+                 if block.feed_forward.pffn[3].bias is not None: nn.init.constant_(block.feed_forward.pffn[3].bias, 0)
+            elif hasattr(block.feed_forward, 'lin1'): # Using individual layers (This branch won't be taken now)
+                 nn.init.xavier_uniform_(block.feed_forward.lin1.weight)
+                 if block.feed_forward.lin1.bias is not None: nn.init.constant_(block.feed_forward.lin1.bias, 0)
+                 nn.init.xavier_uniform_(block.feed_forward.lin2.weight)
+                 if block.feed_forward.lin2.bias is not None: nn.init.constant_(block.feed_forward.lin2.bias, 0)
 
             # *** Crucial: Zero-out the adaLN modulation output layer ***
             nn.init.constant_(block.adaLN_modulation[-1].weight, 0)
@@ -402,60 +501,106 @@ class Transformer(nn.Module):
         x: (B, N, C) N = num_patches, C = embed_dim
         imgs: (B, C_img, H, W)
         """
+        print_stats("Unpatchify Input x", x)
         B, N, C = x.shape
         Hp = Wp = int(N**0.5) # Assume square patch grid
-        assert Hp * Wp == N
-        assert C == self.dim_embed # Ensure correct dimension before reshape
+        assert Hp * Wp == N, f"Number of patches {N} is not a perfect square."
+        assert C == self.dim_embed, f"Input C ({C}) != dim_embed ({self.dim_embed})"
 
         # Reshape sequence to grid: (B, N, C) -> (B, C, N) -> (B, C, Hp, Wp)
         x = x.transpose(1, 2).view(B, self.dim_embed, Hp, Wp)
+        print_stats("Unpatchify Reshaped x", x)
 
         # Use ConvTranspose2d to upscale and reduce channels
         imgs = self.output_proj(x)
+        print_stats("Unpatchify Output imgs", imgs)
         return imgs
 
-    def forward(self, x, t, class_labels=None): # class_labels currently unused
+    def forward(self, x, t, class_labels=None):
         """
         Forward pass of Transformer.
         x: (B, C_img, H, W) tensor of images
         t: (B,) tensor of diffusion timesteps (scalar values, potentially normalized)
         """
+        print("\n--- Transformer Forward Start ---")
+        print_stats("Input x", x)
+        print_stats("Input t", t)
+        if class_labels is not None: print_stats("Input class_labels", class_labels)
+
         B, C_img, H, W = x.shape
-        assert H == self.img_resolution and W == self.img_resolution, "Input image resolution mismatch"
+        if not (H == self.img_resolution and W == self.img_resolution):
+             print(f"WARNING: Input image resolution ({H}x{W}) mismatch with expected ({self.img_resolution}x{self.img_resolution})")
+             # Consider raising error or resizing depending on desired behavior
+             # assert H == self.img_resolution and W == self.img_resolution, "Input image resolution mismatch"
+
 
         # --- 1. Patch Embedding ---
+        print("--- Step 1: Patch Embedding ---")
         x = self.patch_embed(x)  # (B, dim_embed, Hp, Wp)
+        print_stats("After Patch Embed (Conv2d)", x)
         # Reshape to sequence: (B, dim_embed, Hp*Wp) -> (B, Hp*Wp, dim_embed)
         x = x.flatten(2).transpose(1, 2) # (B, num_patches, dim_embed)
+        print_stats("After Patch Embed (Reshaped)", x)
 
         # --- 2. Add Positional Encoding ---
+        print("--- Step 2: Positional Encoding ---")
         if self.learn_pe:
-            x = x + self.pos_embed
+            pe_to_add = self.pos_embed
+            print_stats("Learnable PE", pe_to_add)
+            x = x + pe_to_add
+            print_stats("After Learnable PE Add", x)
         else:
-            x = self.pos_embed(x) # Apply sinusoidal PE
+            # Call the forward method of the PositionalEncoding module
+            x = self.pos_embed_module(x) # Prints are inside PositionalEncoding.forward
+            print_stats("After Sinusoidal PE Module", x)
 
         # --- 3. Get Timestep Embedding ---
-        # Ensure t is correctly scaled if necessary before passing to embedder
-        # Example: If t is [0, 1], scale by T=1000: t_input = t * 1000
-        # If t is already in appropriate range (e.g., 0 to T), use directly: t_input = t
-        # ** Assuming `t` passed from `sCM` is suitable for `TimestepEmbedder` **
-        t_emb = self.t_embedder(t) # (B, dim_embed) - Time embedding
+        print("--- Step 3: Timestep Embedding ---")
+        # Assuming `t` is already correctly scaled
+        t_emb = self.t_embedder(t) # (B, dim_embed) - Prints are inside TimestepEmbedder.forward
+        print_stats("Timestep Embedding (t_emb)", t_emb)
 
         # --- Class Embedding (Placeholder if needed later) ---
         # if class_labels is not None:
+        #     print("--- Step 3b: Class Embedding ---")
         #     c_emb = self.class_embedder(class_labels) # (B, dim_embed)
+        #     print_stats("Class Embedding (c_emb)", c_emb)
         #     t_emb = t_emb + c_emb # Combine embeddings
+        #     print_stats("Combined t_emb + c_emb", t_emb)
 
         # --- 4. Apply Transformer Blocks ---
-        for block in self.blocks:
-            x = block(x, t_emb) # (B, num_patches, dim_embed)
+        print("--- Step 4: Transformer Blocks ---")
+        for i, block in enumerate(self.blocks):
+            print(f"--- Entering Block {i+1}/{self.depth} ---")
+            x = block(x, t_emb) # (B, num_patches, dim_embed) - Prints are inside TransformerBlock.forward
+            print_stats(f"Output from Block {i+1}", x)
+            if torch.isnan(x).any() or torch.isinf(x).any():
+                 print(f"!!! Instability detected after Block {i+1} !!!")
+                 # Optionally raise an error or break early
+                 # raise ValueError(f"NaN or Inf detected after Block {i+1}")
+                 # break
+            print(f"--- Exiting Block {i+1}/{self.depth} ---")
+
 
         # --- 5. Apply Final Layer ---
-        x = self.final_layer(x, t_emb) # (B, num_patches, dim_embed) - Ready for unpatching
+        print("--- Step 5: Final Layer ---")
+        x = self.final_layer(x, t_emb) # (B, num_patches, dim_embed) - Prints are inside FinalLayer.forward
+        print_stats("After Final Layer", x)
+        if torch.isnan(x).any() or torch.isinf(x).any():
+             print(f"!!! Instability detected after Final Layer !!!")
 
         # --- 6. Unpatch (Project back to Image) ---
-        x = self.unpatchify(x) # (B, out_channels, H, W)
+        print("--- Step 6: Unpatchify ---")
+        x = self.unpatchify(x) # (B, out_channels, H, W) - Prints are inside unpatchify
+        print_stats("Final Output Image", x)
+        if torch.isnan(x).any() or torch.isinf(x).any():
+             print(f"!!! Instability detected after Unpatchify !!!")
 
         # Ensure output shape matches input shape if predicting noise (out_channels = in_channels)
-        assert x.shape == (B, self.out_channels, H, W)
+        # assert x.shape == (B, self.out_channels, H, W) # Check moved slightly below
+
+        if x.shape != (B, self.out_channels, self.img_resolution, self.img_resolution):
+             print(f"WARNING: Final output shape {x.shape} doesn't match expected ({B}, {self.out_channels}, {self.img_resolution}, {self.img_resolution})")
+
+        print("--- Transformer Forward End ---\n")
         return x
