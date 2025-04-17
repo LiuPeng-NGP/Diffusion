@@ -89,7 +89,7 @@ class PositionalEncoding(nn.Module):
 
         position = torch.arange(max_len).unsqueeze(1)
         dim_pair = torch.arange(0, dim_embed, 2).float() # Ensure float for division
-        div_term = torch.exp(dim_pair * (-math.log(10000.0) / dim_embed))
+        div_term = torch.exp(dim_pair * (-math.log(1024.0) / dim_embed))
 
         pe = torch.zeros(1, max_len, dim_embed) # Start with batch dim
         pe[0, :, 0::2] = torch.sin(position * div_term)
@@ -192,7 +192,7 @@ class TimestepEmbedder(nn.Module):
                     nn.init.constant_(module.bias, 0)
 
     @staticmethod
-    def timestep_embedding(t, dim, max_period=10000):
+    def timestep_embedding(t, dim, max_period=3):
         half = dim // 2
         freqs = torch.exp(
             -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
@@ -397,7 +397,7 @@ class Transformer(nn.Module):
             depth=12,
             mlp_ratio=4.0,
             drop_prob=0.1, # Consider reducing dropout if needed
-            learn_pe=False,
+            learn_pe=True,
             norm_type="layernorm", # Changed default to layernorm
             norm_eps=1e-6,
             ls_init_value=1e-5, # LayerScale init value

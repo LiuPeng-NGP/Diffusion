@@ -9,7 +9,7 @@ network:
   img_resolution: 32
   in_channels: 3
   out_channels: 3
-  patch_size: 4
+  patch_size: 2
   dim_embed: 768 # Example larger dimension
   num_heads: 12
   depth: 2
@@ -31,7 +31,7 @@ log_every: 100
 
 # testing params
 n_sample: 30
-save_dir: './results/2000_unconditional_CM'
+save_dir: './results/2000_unconditional_CM_patch2'
 save_model: True
 
 # Sampling
