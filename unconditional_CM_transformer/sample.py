@@ -65,7 +65,6 @@ def sample(args):
     with open(yaml_path, 'r') as f:
         args = yaml.full_load(f)
     args = Config(args)
-    steps = args.steps
     batches = args.sampling_batch_size
     epoch_checkpoint = args.epoch_checkpoint
     

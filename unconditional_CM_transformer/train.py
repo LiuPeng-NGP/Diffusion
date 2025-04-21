@@ -200,6 +200,14 @@ def train(args):
         if local_rank == 0:
             ema.load_state_dict(checkpoint['ema'])
         optim.load_state_dict(checkpoint['optim'])
+        
+        # Additional loading
+        if 'scaler' in checkpoint and checkpoint['scaler'] is not None and use_amp:
+            scaler.load_state_dict(checkpoint['scaler'])
+        if 'epoch' in checkpoint:
+            start_epoch = checkpoint['epoch'] + 1
+        if 'train_steps' in checkpoint:
+            train_steps = checkpoint['train_steps']
     
     # Training
     train_steps = 0
@@ -277,6 +285,9 @@ def train(args):
                         'weight_model': diffusion.weight_model.state_dict(),
                         'ema': ema.state_dict(),
                         'optim': optim.state_dict(),
+                        'epoch': current_epoch,  # Track training progress
+                        'train_steps': train_steps,  # Track total steps
+                        'scaler': scaler.state_dict() if use_amp else None,  # For mixed precision
                     }
                     save_path = os.path.join(model_dir, f"model_{current_epoch}.pth")
                     torch.save(checkpoint, save_path)

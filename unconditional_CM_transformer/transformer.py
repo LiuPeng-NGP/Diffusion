@@ -5,8 +5,13 @@ import torch.nn.functional as F
 from torch import Tensor
 from einops import rearrange # Often useful for transformers
 
+# ANSI color codes
+_RED = "\033[91m"
+_RESET = "\033[0m"
+
 # --- Debugging Module ---
-_DEBUG_ENABLED = False  # Global flag to control debugging
+_DEBUG_ENABLED = False  # Global flag to control debugging - SET TO FALSE BY DEFAULT
+# _DEBUG_ENABLED = True  # Uncomment this line to enable debugging
 
 def set_debug_enabled(enabled: bool):
     """Globally enable or disable debug printing."""
@@ -14,12 +19,13 @@ def set_debug_enabled(enabled: bool):
     _DEBUG_ENABLED = enabled
 
 def debug_print_stats(name: str, x: Tensor):
-    """Prints tensor statistics if debugging is enabled."""
-    if not _DEBUG_ENABLED:
+    """Prints tensor statistics if debugging is enabled, but only for NaNs/Infs or non-tensors/empty tensors."""
+    if not _DEBUG_ENABLED: # This check remains, but _DEBUG_ENABLED is now False by default
         return
 
     if not isinstance(x, Tensor):
-        print(f"DEBUG: {name} is not a tensor ({type(x)}).")
+        # Use red color for non-tensor debug message
+        print(f"{_RED}DEBUG: {name} is not a tensor ({type(x)}).{_RESET}")
         return
     if x.numel() == 0:
         print(f"DEBUG: {name} is empty. Shape: {x.shape}")
@@ -29,17 +35,25 @@ def debug_print_stats(name: str, x: Tensor):
     with torch.no_grad():
         has_nan = torch.isnan(x).any().item()
         has_inf = torch.isinf(x).any().item()
-        if x.is_floating_point():
-             print(f"DEBUG: {name} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
-                   f"NaN: {has_nan}, Inf: {has_inf}, "
-                   f"Min: {x.min().item():.4f}, Max: {x.max().item():.4f}, "
-                   f"Mean: {x.mean().item():.4f}, Std: {x.std().item():.4f}")
-        else:
-             print(f"DEBUG: {name} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
-                   f"NaN: {has_nan}, Inf: {has_inf}, "
-                   f"Min: {x.min().item()}, Max: {x.max().item()}") # No mean/std for non-float
+
         if has_nan or has_inf:
-            print(f"!!! WARNING: NaN or Inf detected in {name} !!!")
+            # Determine if we need red color for the main stats line
+            stats_prefix = f"DEBUG: {name}"
+            color_prefix = _RED
+            color_suffix = _RESET
+
+            if x.is_floating_point():
+                 print(f"{color_prefix}{stats_prefix} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
+                       f"NaN: {has_nan}, Inf: {has_inf}, "
+                       f"Min: {x.min().item():.4f}, Max: {x.max().item():.4f}, "
+                       f"Mean: {x.mean().item():.4f}, Std: {x.std().item():.4f}{color_suffix}")
+            else:
+                 print(f"{color_prefix}{stats_prefix} - Shape: {tuple(x.shape)}, Dtype: {x.dtype}, Device: {x.device}, "
+                       f"NaN: {has_nan}, Inf: {has_inf}, "
+                       f"Min: {x.min().item()}, Max: {x.max().item()}{color_suffix}") # No mean/std for non-float
+
+            # Print additional warning in red if NaN/Inf detected
+            print(f"{_RED}!!! WARNING: NaN or Inf detected in {name} !!!{_RESET}")
 
 
 # --- Helper Functions (Attention) --- Modulate helper removed as it's integrated differently ---
@@ -55,21 +69,21 @@ def attention(query: Tensor, key: Tensor, value: Tensor, mask: Tensor = None) ->
     weight = F.softmax(scores, dim=-1)
     # Add NaN check for weights
     if torch.isnan(weight).any():
-        if _DEBUG_ENABLED:
-            print("NaN detected in attention weights!")
+        if _DEBUG_ENABLED: # This print is now conditional
+            print(f"{_RED}NaN detected in attention weights!{_RESET}")
         # Optionally handle (e.g., replace NaNs, though this might hide underlying issues)
         # weight = torch.nan_to_num(weight, nan=0.0) # Be cautious using this
-    # Add NaN check for value
+    # Add NaN check for value - This check was already present, keeping it.
     if torch.isnan(value).any():
-        if _DEBUG_ENABLED:
-            print("NaN detected in attention value tensor!")
+        if _DEBUG_ENABLED: # This print is now conditional
+            print(f"{_RED}NaN detected in attention value tensor!{_RESET}")
         # value = torch.nan_to_num(value, nan=0.0)
 
     out = torch.matmul(weight, value)
     # Add NaN check for output
     if torch.isnan(out).any():
-        if _DEBUG_ENABLED:
-            print("NaN detected after attention matmul!")
+        if _DEBUG_ENABLED: # This print is now conditional
+            print(f"{_RED}NaN detected after attention matmul!{_RESET}")
         # out = torch.nan_to_num(out, nan=0.0)
     return out
 
@@ -89,7 +103,7 @@ class PositionalEncoding(nn.Module):
 
         position = torch.arange(max_len).unsqueeze(1)
         dim_pair = torch.arange(0, dim_embed, 2).float() # Ensure float for division
-        div_term = torch.exp(dim_pair * (-math.log(10000.0) / dim_embed))
+        div_term = torch.exp(dim_pair * (-math.log(1024.0) / dim_embed))
 
         pe = torch.zeros(1, max_len, dim_embed) # Start with batch dim
         pe[0, :, 0::2] = torch.sin(position * div_term)
@@ -192,7 +206,7 @@ class TimestepEmbedder(nn.Module):
                     nn.init.constant_(module.bias, 0)
 
     @staticmethod
-    def timestep_embedding(t, dim, max_period=10000):
+    def timestep_embedding(t, dim, max_period=3):
         half = dim // 2
         freqs = torch.exp(
             -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
@@ -293,7 +307,7 @@ class TransformerBlock(nn.Module):
 
         # Self-Attention path: Modulate -> Norm -> Attention -> LayerScale -> Residual
         residual = x
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Block: Entering Self-Attention Path ---")
         # Apply AdaLN modulation (scale and shift) *before* norm
         x_mod_attn = x * (1 + scale_attn.unsqueeze(1)) + shift_attn.unsqueeze(1)
@@ -307,12 +321,12 @@ class TransformerBlock(nn.Module):
         debug_print_stats("Block LayerScaled Attn Output", scaled_attn_output)
         x = residual + scaled_attn_output
         debug_print_stats("Block After Attn Residual Add", x)
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Block: Exiting Self-Attention Path ---")
 
         # Feed-Forward path: Modulate -> Norm -> FFN -> LayerScale -> Residual
         residual = x
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Block: Entering Feed-Forward Path ---")
         # Apply AdaLN modulation (scale and shift) *before* norm
         x_mod_mlp = x * (1 + scale_mlp.unsqueeze(1)) + shift_mlp.unsqueeze(1)
@@ -326,7 +340,7 @@ class TransformerBlock(nn.Module):
         debug_print_stats("Block LayerScaled FFN Output", scaled_ffn_output)
         x = residual + scaled_ffn_output
         debug_print_stats("Block After FFN Residual Add", x)
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Block: Exiting Feed-Forward Path ---")
 
         debug_print_stats("Block Final Output x", x)
@@ -397,7 +411,7 @@ class Transformer(nn.Module):
             depth=12,
             mlp_ratio=4.0,
             drop_prob=0.1, # Consider reducing dropout if needed
-            learn_pe=False,
+            learn_pe=True,
             norm_type="layernorm", # Changed default to layernorm
             norm_eps=1e-6,
             ls_init_value=1e-5, # LayerScale init value
@@ -460,10 +474,8 @@ class Transformer(nn.Module):
 
         # Initialize weights
         self.initialize_weights(ls_init_value) # Pass ls_init_value
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print for parameter count
             print(f"Transformer initialized with {sum(p.numel() for p in self.parameters() if p.requires_grad)/1e6:.2f}M trainable parameters")
-        else:
-            pass # Suppress print when debug is off
 
 
     def initialize_weights(self, ls_init_value=1e-5): # Added ls_init_value
@@ -539,18 +551,19 @@ class Transformer(nn.Module):
         """
         Forward pass of Transformer using revised blocks.
         """
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("\n--- Transformer Forward Start ---")
         debug_print_stats("Input x", x)
         debug_print_stats("Input t", t)
 
         B, C_img, H, W = x.shape
         if not (H == self.img_resolution and W == self.img_resolution):
-            if _DEBUG_ENABLED:
-                print(f"WARNING: Input image resolution ({H}x{W}) mismatch with expected ({self.img_resolution}x{self.img_resolution})")
+            if _DEBUG_ENABLED: # Conditional print
+                # Use red color for resolution warning
+                print(f"{_RED}WARNING: Input image resolution ({H}x{W}) mismatch with expected ({self.img_resolution}x{self.img_resolution}){_RESET}")
 
         # --- 1. Patch Embedding ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 1: Patch Embedding ---")
         debug_print_stats("After Patch Embed (Conv2d)", x)
         x = self.patch_embed(x)
@@ -559,7 +572,7 @@ class Transformer(nn.Module):
 
 
         # --- 2. Add Positional Encoding ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 2: Positional Encoding ---")
         if self.learn_pe:
             pe_to_add = self.pos_embed
@@ -571,60 +584,80 @@ class Transformer(nn.Module):
             debug_print_stats("After Sinusoidal PE Module", x)
 
         # --- 3. Get Timestep Embedding ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 3: Timestep Embedding ---")
         t_emb = self.t_embedder(t)
         debug_print_stats("Timestep Embedding (t_emb)", t_emb)
 
         # --- 4. Apply Transformer Blocks (Revised) ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 4: Transformer Blocks ---")
         for i, block in enumerate(self.blocks):
-            if _DEBUG_ENABLED:
+            if _DEBUG_ENABLED: # Conditional print
                 print(f"--- Entering Block {i+1}/{self.depth} ---")
             x = block(x, t_emb)
             debug_print_stats(f"Output from Block {i+1}", x)
+            # Check for instability *after* the block
             if torch.isnan(x).any() or torch.isinf(x).any():
-                if _DEBUG_ENABLED:
-                    print(f"!!! Instability detected after Block {i+1} !!!")
+                if _DEBUG_ENABLED: # Conditional print
+                    # Use red color for instability warning
+                    print(f"{_RED}!!! Instability detected after Block {i+1} !!!{_RESET}")
+                # Keep the raise ValueError - this is a hard stop for debugging
                 raise ValueError(f"NaN or Inf detected after Block {i+1}")
-                 # break # Or break
-            if _DEBUG_ENABLED:
+            if _DEBUG_ENABLED: # Conditional print
                 print(f"--- Exiting Block {i+1}/{self.depth} ---")
 
         # --- 5. Apply Final Layer (Revised) ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 5: Final Layer ---")
         x = self.final_layer(x, t_emb) # Pass t_emb for final modulation
         debug_print_stats("After Final Layer", x)
+        # Check for instability *after* the final layer
         if torch.isnan(x).any() or torch.isinf(x).any():
-            if _DEBUG_ENABLED:
-                print(f"!!! Instability detected after Final Layer !!!")
+            if _DEBUG_ENABLED: # Conditional print
+                # Use red color for instability warning
+                print(f"{_RED}!!! Instability detected after Final Layer !!!{_RESET}")
+            # Keep the raise ValueError
             raise ValueError(f"NaN or Inf detected after Final Layer")
 
         # --- 6. Unpatch (Project back to Image) ---
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Step 6: Unpatchify ---")
         x = self.unpatchify(x)
         debug_print_stats("Final Output Image", x)
+        # Check for instability *after* unpatchify
         if torch.isnan(x).any() or torch.isinf(x).any():
-            if _DEBUG_ENABLED:
-                print(f"!!! Instability detected after Unpatchify !!!")
+            if _DEBUG_ENABLED: # Conditional print
+                # Use red color for instability warning
+                print(f"{_RED}!!! Instability detected after Unpatchify !!!{_RESET}")
+            # Keep the raise ValueError
             raise ValueError(f"NaN or Inf detected after Unpatchify")
 
         if x.shape != (B, self.out_channels, self.img_resolution, self.img_resolution):
-            if _DEBUG_ENABLED:
-                print(f"WARNING: Final output shape {x.shape} doesn't match expected ({B}, {self.out_channels}, {self.img_resolution}, {self.img_resolution})")
+            if _DEBUG_ENABLED: # Conditional print
+                # Use red color for shape mismatch warning
+                print(f"{_RED}WARNING: Final output shape {x.shape} doesn't match expected ({B}, {self.out_channels}, {self.img_resolution}, {self.img_resolution}){_RESET}")
 
-        if _DEBUG_ENABLED:
+        if _DEBUG_ENABLED: # Conditional print
             print("--- Transformer Forward End ---\n")
         return x
 
-# Example usage to enable/disable debugging:
-# set_debug_enabled(True)  # Enable debug prints
+# Example usage:
+# By default, _DEBUG_ENABLED is False, so no verbose logs will be printed during training.
 # model = Transformer()
 # dummy_input = torch.randn(2, 3, 32, 32)
 # dummy_timestep = torch.randint(0, 1000, (2,))
-# output = model(dummy_input, dummy_timestep)
-# set_debug_enabled(False) # Disable debug prints
-# output_no_debug = model(dummy_input, dummy_timestep)
+# try:
+#     output = model(dummy_input, dummy_timestep)
+#     print("Run completed successfully (no verbose logs expected).")
+# except ValueError as e:
+#     print(f"{_RED}Run terminated due to instability: {e}{_RESET}")
+
+# To re-enable verbose logging for debugging:
+# set_debug_enabled(True)
+# print("\n--- Running with Debugging Enabled ---")
+# try:
+#     output = model(dummy_input, dummy_timestep)
+#     print("Run with debugging completed successfully.")
+# except ValueError as e:
+#     print(f"{_RED}Run terminated due to instability: {e}{_RESET}")
