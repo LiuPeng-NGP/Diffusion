@@ -103,6 +103,18 @@ python3 -m pytorch_fid unconditional_DDPM_transformer/results/2000_unconditional
 
 FID:  8.94988141073594
 
+# Unconditional DDPM u shape transformer
+cd unconditional_DDPM_u_transformer
+
+## Train
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55008 train.py --config config.yaml --use_amp
+## Sample
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55018 sample.py --config config.yaml --use_amp
+## Evaluation
+python3 -m pytorch_fid unconditional_DDPM_u_transformer/results/2000_unconditional_DDPM/EMAgenerated_ep1999_ddpm_steps1000/pngs data/cifar10-pngs
+
+FID:  5.398042306693924
+
 # Unconditional CM transformer
 cd unconditional_CM_transformer
 
@@ -119,9 +131,9 @@ FID:  18.990830834827193
 cd unconditional_CM_u_transformer
 
 ## Train
-torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55007 train.py --config config.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55008 train.py --config config.yaml --use_amp
 ## Sample
-torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55017 sample.py --config config.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55018 sample.py --config config.yaml --use_amp
 ## Evaluation
 python3 -m pytorch_fid unconditional_CM_u_transformer/results/2000_unconditional_CM/EMAgenerated_ep1999_cm/pngs data/cifar10-pngs
 
