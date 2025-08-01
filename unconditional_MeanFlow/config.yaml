@@ -3,7 +3,7 @@
 diffusion:
  t_min: 1e-5
  norm_eps: 1e-5
- norm_p: -0.5
+ norm_p: 0.75
   
 # network params
 network:
@@ -43,4 +43,3 @@ save_model: True
 # Sampling
 sampling_batch_size: 125
 epoch_checkpoint: -1
-num_steps: 200

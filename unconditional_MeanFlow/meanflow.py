@@ -57,7 +57,7 @@ class MeanFlow(nn.Module):
             loss_sum = loss_sq.sum(dim=(1, 2, 3))
 
             adp_wt = (loss_sum.detach() + self.norm_eps) ** self.norm_p
-            loss = loss_sum * adp_wt
+            loss = loss_sum / adp_wt
 
             return loss.mean()
 

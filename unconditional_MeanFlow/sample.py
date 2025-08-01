@@ -124,7 +124,7 @@ def sample(args):
             noise = torch.randn([samples_per_process,3,32, 32]).to(device)
             
             with torch.no_grad():
-                x_gen = diffusion.sample(noise, num_steps = args.num_steps)
+                x_gen = diffusion.sample(noise)
         dist.barrier()
         x_gen = gather_tensor(x_gen).cpu()
         if local_rank == 0:
