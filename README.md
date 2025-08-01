@@ -159,3 +159,22 @@ torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55020 sample.py
 ## Evaluation
 python3 -m pytorch_fid unconditional_MeanFlow/results/2000_unconditional_MeanFlow/EMAgenerated_ep1999_meanflow/pngs data/cifar10-pngs
 FID:  20.889072117867954
+
+# unconditional MeanFlow multisteps
+cd unconditional_MeanFlow_multisteps
+## Train
+torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55011 train.py --config config.yaml --use_amp
+## Sample
+torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55021 sample.py --config config.yaml --use_amp
+## Evaluation
+python3 -m pytorch_fid unconditional_MeanFlow_multisteps/results/2000_unconditional_MeanFlow/EMAgenerated_ep1999_meanflow/pngs data/cifar10-pngs
+### 2 steps
+FID:  14.809913632763653
+### 3 steps
+FID:  14.028773281908798
+### 5 steps
+FID:  13.799752407995243
+### 10 steps
+FID:  13.829525196642294
+### 30 steps
+FID:  14.005572469598405
