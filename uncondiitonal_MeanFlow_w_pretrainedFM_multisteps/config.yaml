@@ -1,0 +1,51 @@
+# config.yaml
+# model params
+diffusion:
+  t_min: 1e-5
+  norm_eps: 1e-5
+  norm_p: 0.75
+  # Add the two-stage parameters here
+  two_stage: True
+  flow_matching_epochs: 1000
+
+# network params
+network:
+  # ... (rest of network params are unchanged)
+  in_channels: 3 
+  out_channels: 3 
+  num_blocks: 2 
+  attn_resolutions: [16] 
+  model_channels: 96 
+  channel_mult: [1,2,2] 
+  dropout: 0.2
+  img_resolution: 32 
+  label_dim: 0
+  embedding_type: 'positional' 
+  encoder_type: 'standard' 
+  decoder_type: 'standard' 
+  augment_dim: 9 
+  channel_mult_noise: 1 
+  resample_filter: [1, 1]
+
+# training params
+n_epoch: 2000
+# ... (rest of training and testing params are unchanged)
+global_batch_size: 512
+global_seed: 1334
+learning_rate: 1.0e-4
+warm_epoch: 200
+load_epoch: -1
+flip: True
+ema: 0.9993
+num_workers: 8
+log_every: 100
+
+# testing params
+n_sample: 30
+save_dir: './results/2000_unconditional_MeanFlow'
+save_model: True
+
+# Sampling
+sampling_batch_size: 125
+epoch_checkpoint: -1
+num_steps: 5
