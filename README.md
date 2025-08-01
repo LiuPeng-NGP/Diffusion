@@ -168,6 +168,8 @@ torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55011 train.py 
 torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55021 sample.py --config config.yaml --use_amp
 ## Evaluation
 python3 -m pytorch_fid unconditional_MeanFlow_multisteps/results/2000_unconditional_MeanFlow/EMAgenerated_ep1999_meanflow/pngs data/cifar10-pngs
+### 1 steps
+FID:  20.889072117867954
 ### 2 steps
 FID:  14.809913632763653
 ### 3 steps
