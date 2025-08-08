@@ -84,7 +84,7 @@ def train(args):
     """
     Trains a new diffusion model.
     """
-    use_amp = args.use_amp
+    # use_amp = args.use_amp
     assert torch.cuda.is_available(), "Training currently requires at least one GPU."
     
     # Configuration:
@@ -92,6 +92,7 @@ def train(args):
     with open(yaml_path, 'r') as f:
         args = yaml.full_load(f)
     args = Config(args)
+    use_amp = args.use_amp
     
     # Setup DDP:
     dist.init_process_group("nccl")
@@ -257,7 +258,7 @@ def train(args):
             else:
                 continue
 
-            temp_meanflow = MeanFlow(ema)
+            temp_meanflow = MeanFlow(ema, **args.diffusion)
             noise = torch.randn([args.n_sample,3,32,32]).to(device)
             temp_meanflow.model.eval()
             with torch.no_grad():
@@ -286,6 +287,6 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
-    parser.add_argument("--use_amp", action='store_true', default=False)
+    # parser.add_argument("--use_amp", action='store_true', default=False)
     args = parser.parse_args()
     train(args)

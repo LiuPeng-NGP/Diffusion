@@ -142,6 +142,5 @@ def sample(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
-    parser.add_argument("--use_amp", action='store_true', default=False)
     args = parser.parse_args()
     sample(args)

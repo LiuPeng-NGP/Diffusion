@@ -29,19 +29,21 @@ network:
 
 # training params
 n_epoch: 2000
-global_batch_size: 128
+global_batch_size: 1024
 global_seed: 1334
 learning_rate: 1.0e-4
 warm_epoch: 200
-load_epoch: 1100
+load_epoch: 400
 flip: True
 ema: 0.9993
 num_workers: 8
 log_every: 100
+use_amp: True
+
 
 # testing params
 n_sample: 30
-save_dir: './results/2000_unconditional_MeanFlow'
+save_dir: './results/2000_unconditional_MeanFlow_b1024'
 save_model: True
 
 # Sampling

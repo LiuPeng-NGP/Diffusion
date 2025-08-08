@@ -46,6 +46,7 @@ FID:  4.234571648031874
 cd Class_conditional_EDM
 ## Train
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55002 train.py --config config.yaml --use_amp
 ## Sample
 torchrun --nnodes=1 --nproc_per_node=2 --rdzv_endpoint=localhost:55502 sample.py --config config.yaml --use_amp
 ## Evaluation
@@ -144,11 +145,16 @@ FID:  23.093370349372435
 cd unconditional_MeanFlow
 ## Train
 torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55009 train.py --config config.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:56009 train.py --config config_1024.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:57009 train.py --config config_1024_woamp.yaml
 ## Sample
 torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55019 sample.py --config config.yaml --use_amp
+torchrun --nnodes=1 --nproc_per_node=8 --rdzv_endpoint=localhost:55019 sample.py --config config_1024.yaml
 ## Evaluation
 python3 -m pytorch_fid unconditional_MeanFlow/results/2000_unconditional_MeanFlow/EMAgenerated_ep1999_meanflow/pngs data/cifar10-pngs
+python3 -m pytorch_fid unconditional_MeanFlow/results/2000_unconditional_MeanFlow_b1024/EMAgenerated_ep1999_meanflow/pngs data/cifar10-pngs
 FID:  20.889072117867954
+batch szie 1024 FID:  15.883537466471012
 
 # unconditional MeanFlow with pretrained FM
 cd uncondiitonal_MeanFlow_w_pretrainedFM
