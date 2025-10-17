@@ -13,7 +13,8 @@ import argparse
 import os
 
 from meanflow import MeanFlow
-from unet import SongUNet
+# from unet import SongUNet
+from unet_official import SongUNet
 
 import warnings
 warnings.filterwarnings('ignore', 'Grad strides do not match bucket view strides') # False warning printed by PyTorch 1.12.

@@ -4,10 +4,10 @@ diffusion:
  norm_eps: 1e-3
  norm_p: 0.75
  ratio: 0.75
- P_mean_t: -0.6
- P_std_t: 1.6
- P_mean_r: -4.0
- P_std_r: 1.6 
+ P_mean_t: -2.0
+ P_std_t: 2.0
+ P_mean_r: -2.0
+ P_std_r: 2.0
   
 # network params
 network:
@@ -33,7 +33,7 @@ global_batch_size: 1024
 global_seed: 1334
 learning_rate: 1.0e-4
 warm_epoch: 200
-load_epoch: 400
+load_epoch: -1
 flip: True
 ema: 0.9993
 num_workers: 8
